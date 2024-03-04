@@ -13,6 +13,7 @@ from typing import Any
 
 import jupyter_server.services.kernels.handlers as jupyter_server_handlers
 import tornado
+from jupyter_server.auth.decorator import ws_authenticated
 from jupyter_client.jsonutil import date_default
 from tornado import web
 
@@ -146,6 +147,22 @@ class KernelHandler(
         model = km.kernel_model(kernel_id)
         self.finish(json.dumps(model, default=date_default))
 
+    @web.authenticated
+    async def delete(self, kernel_id):
+        """Remove a kernel."""
+        km = self.kernel_manager
+        km.check_kernel_id(kernel_id)
+        km.shutdown_kernel(kernel_id)
+        self.set_status(204)
+        self.finish()
+
+class KernelWebsocketHandler(jupyter_server_handlers.KernelWebsocketHandler):
+
+    @ws_authenticated
+    async def get(self, kernel_id):
+        """Handle a get request for a kernel."""
+        self.kernel_manager.check_kernel_id(kernel_id)
+        await super().get(kernel_id=kernel_id)
 
 default_handlers: list[tuple] = []
 for path, cls in jupyter_server_handlers.default_handlers:
